@@ -1,0 +1,123 @@
+#!/bin/sh
+prog=`basename $0`
+prog=${prog#q}
+
+
+maxtasks_per_node=16 ; maxcpus=4096 ; cpus=$maxtasks_per_node ;
+# defaults
+NODETYPE=${NODETYPE:-i686}
+WALLTIME=1
+tasks_per_node=$maxtasks_per_node
+                                                                                
+# parse options
+set -- `getopt gvW:n:l:q:P: $*`
+parse_opts=0
+while [ "$1" != -- ]; do
+  case "$1" in
+    -g) debug=1 ;;
+    -v) verbose=1 ;;
+    -k) keeptmp=1 ;;
+    -W) OPTION="$OPTION $2"; shift;;
+    -l) QSUBARGS="$QSUBARGS -l $2"; shift;;
+    -n) NOPTION=$2; shift;;
+    -q) QUEUE=$2; QSUBARGS="$QSUBARGS -q $2"; shift;;
+    -P) PROJECT=$2; shift;;
+     *) parse_opts=1;;
+  esac
+  shift
+done
+shift
+
+if [ "x$QUEUE" = "xserial" ]; then
+  max_tasks_per_node=1
+  cpus=1
+fi
+
+tasks_per_node=$maxtasks_per_node
+
+if [ x${PROJECT} == x ]; then
+  echo "Project missing. Specify it with -P, or via the PROJECT environment variable"
+  exit 1;
+fi
+
+if [ x${NOPTION} != x ]; then
+  cpus=`echo $NOPTION | sed -e 's/\/.*$//'`
+  tasks_per_node=`echo $NOPTION | sed -e 's/^.*\///' -e 's/:.*$//'`
+  if [ $tasks_per_node -eq $cpus ]; then
+   task_flag="total"
+   tasks_per_node=$maxtasks_per_node
+  elif [ $tasks_per_node -gt $maxtasks_per_node ]; then
+   echo TASKS_PER_NODE too high, ignoring
+   task_flag="total"
+   tasks_per_node=$maxtasks_per_node
+  fi
+fi
+#tasks_per_node=2
+if [ $cpus -gt $maxcpus ] ; then echo Too many cpus ; parse_opts=1 ; fi
+typeset -i nodes
+let nodes=($cpus-1)/$tasks_per_node+1;
+ 
+if [ $parse_opts -eq 1 ] ; then
+cat << EOF
+Usage: $SCRIPT -n CPUS/TASKS_PER_NODE -h HH[:MM[:SS]] [-v] [-k] -W MOLPRO_OPTION INPUT_FILES
+EOF
+exit 1
+fi
+
+if [ $cpus -eq 1 ]; then tasks_per_node=1; fi
+
+if [ ! -z $verbose ]; then
+echo 'Processors:      ' $cpus
+echo 'Tasks per node:  ' $tasks_per_node
+echo 'Nodes:           ' $nodes
+fi;
+
+if [ "x$QUEUE" != "xserial" ]; then
+  QSUBARGS="$QSUBARGS -l select=${nodes}:ncpus=${tasks_per_node}:mpiprocs=${tasks_per_node} "
+fi
+
+DIR=`/bin/pwd`
+
+
+if [ ! -z $debug ]; then debug='export MOLPRO_GA_DEBUG=1' ; fi
+for file in $* ; do
+jobname=`basename ${file}|sed -e 's/\.[a-zA-Z0-9]*$//'`
+qjobname=`echo "$jobname" | sed -e 's,[-+.],,g' -e 's,\(..........\).*,\1,'`
+echo qsub $QSUBARGS -j oe -N ${qjobname} -P $PROJECT
+qsub $QSUBARGS -j oe -N ${qjobname} -P $PROJECT << EOF
+#PBS -l place=scatter:excl
+
+if [ -r .bashrc ]; then  . .bashrc ; fi
+export MOLPRO_OPTIONS="$MOLPRO_OPTIONS"
+export PATH=$JOBPATH:\$PATH
+#export TMPDIR2=\${TMPDIR2:-\$TMPDIR}
+export SCRATCHDIR=/scratch/$USER/$$.`echo $file | sed -e s,/,_,g`
+$debug
+echo cd $PWD
+cd $PWD
+date
+hostname
+which $prog
+if [ $prog = molpro ]; then
+echo $prog -v -d \$SCRATCHDIR $OPTION $file
+pbsdsh -- mkdir -p \$SCRATCHDIR
+time $prog -n $cpus -d \$SCRATCHDIR $OPTION $file
+if test -z $keeptmp ; then
+ pbsdsh -- rm -rf \$SCRATCHDIR
+fi
+else
+echo $prog $OPTION $file
+time $prog $OPTION $file
+fi
+env
+df -h
+echo TMPDIR=\$TMPDIR
+EOF
+
+done
+
+#echo PBS_NODEFILE=\$PBS_NODEFILE
+#cat \$PBS_NODEFILE
+#echo ======================
+
+#export PATH=$JOBPATH:/opt/molpro/bin:\$PATH:/usr/local/bin
