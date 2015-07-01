@@ -8,13 +8,13 @@ prog=${this#${prefix}}
 #max_tasks_per_node=16 
 
 if [ -z "$max_tasks_per_node" ]; then uname=$(uname); test $uname = Darwin && max_tasks_per_node=$(sysctl -n hw.ncpu) || max_tasks_per_node=$(nproc||echo 1) ; fi
-echo max_tasks_per_node=$max_tasks_per_node
 
 #default
 defaultoptions="-n $max_tasks_per_node"
                                                                                 
 # parse options
-configfileoptions=$(cat ${HOME}/.${this}rc)
+configfile=${HOME}/.${this}rc
+test -r $configfile && configfileoptions=$(cat ${configfile})
 set -- `getopt gvW:n:l:q:P: $defaultoptions $configfileoptions $*`
 parse_opts=0
 while [ "$1" != -- ]; do
