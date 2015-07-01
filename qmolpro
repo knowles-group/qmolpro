@@ -89,7 +89,6 @@ echo qsub $QSUBARGS -j oe -N ${qjobname} -P $PROJECT
 qsub $QSUBARGS -j oe -N ${qjobname} -P $PROJECT << EOF
 
 if [ -r .bashrc ]; then  . .bashrc ; fi
-env
 export MOLPRO_OPTIONS="$MOLPRO_OPTIONS"
 export PATH=$JOBPATH:\$PATH
 export SCRATCHDIR=${scratchdir}/\${PBS_JOBID}
