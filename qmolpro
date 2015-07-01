@@ -5,9 +5,9 @@ prog=${this#${prefix}}
 
 # configuration
 #Include this if workers have different core count to head, or if you want for other reasons to configure manually
-#maxtasks_per_node=16 
+#max_tasks_per_node=16 
 
-if [ -z "$maxtasks_per_node" ]; then uname=$(uname); test $uname = Darwin && max_tasks_per_node=$(sysctl -n hw.ncpu) || maxtasks_per_node=$(nproc||echo 1) ; fi
+if [ -z "$max_tasks_per_node" ]; then uname=$(uname); test $uname = Darwin && max_tasks_per_node=$(sysctl -n hw.ncpu) || max_tasks_per_node=$(nproc||echo 1) ; fi
 echo max_tasks_per_node=$max_tasks_per_node
 
 #default
@@ -18,7 +18,6 @@ configfileoptions=$(cat ${HOME}/.${this}rc)
 set -- `getopt gvW:n:l:q:P: $defaultoptions $configfileoptions $*`
 parse_opts=0
 while [ "$1" != -- ]; do
-    echo option $1
   case "$1" in
     -g) debug=1 ;;
     -v) verbose=1 ;;
@@ -40,16 +39,16 @@ shift
 #   exit 1;
 # fi
 
-tasks_per_node=$maxtasks_per_node
+tasks_per_node=$max_tasks_per_node
 cpus=`echo $NOPTION | sed -e 's/\/.*$//'`
 tasks_per_node=`echo $NOPTION | sed -e 's/^.*\///' -e 's/:.*$//'`
 if [ $tasks_per_node -eq $cpus ]; then
     task_flag="total"
-    tasks_per_node=$maxtasks_per_node
-elif [ $tasks_per_node -gt $maxtasks_per_node ]; then
+    tasks_per_node=$max_tasks_per_node
+elif [ $tasks_per_node -gt $max_tasks_per_node ]; then
     echo TASKS_PER_NODE too high, ignoring
     task_flag="total"
-    tasks_per_node=$maxtasks_per_node
+    tasks_per_node=$max_tasks_per_node
 fi
 typeset -i nodes
 let nodes=($cpus-1)/$tasks_per_node+1;
