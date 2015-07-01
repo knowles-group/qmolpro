@@ -10,15 +10,22 @@ prog=${this#${prefix}}
 if [ -z "$max_tasks_per_node" ]; then uname=$(uname); test $uname = Darwin && max_tasks_per_node=$(sysctl -n hw.ncpu) || max_tasks_per_node=$(nproc||echo 1) ; fi
 
 #default
-defaultoptions="-n $max_tasks_per_node"
+defaultoptions="-n $max_tasks_per_node -d ${TMPDIR:-/tmp}"
                                                                                 
 # parse options
+systemconfigfile=$0.rc
+echo systemconfigfile=$systemconfigfile
+ls -l $systemconfigfile
 configfile=${HOME}/.${this}rc
+test -r $systemconfigfile && systemconfigfileoptions=$(cat ${systemconfigfile})
 test -r $configfile && configfileoptions=$(cat ${configfile})
-set -- `getopt gvW:n:l:q:P: $defaultoptions $configfileoptions $*`
+echo systemconfigfileoptions=$systemconfigfileoptions
+set -- `getopt gd:vW:n:l:q:P: $defaultoptions $systemconfigfileoptions $configfileoptions $*`
 parse_opts=0
 while [ "$1" != -- ]; do
+echo option $1 $2
   case "$1" in
+    -d) eval scratchdir="$2"; shift;;
     -g) debug=1 ;;
     -v) verbose=1 ;;
     -k) keeptmp=1 ;;
@@ -32,7 +39,6 @@ while [ "$1" != -- ]; do
   shift
 done
 shift
-
 
 # if [ x${PROJECT} == x ]; then
 #   echo "Project missing. Specify it with -P (possible in $HOME/.${this}rc), or via the PROJECT environment variable"
@@ -83,10 +89,10 @@ echo qsub $QSUBARGS -j oe -N ${qjobname} -P $PROJECT
 qsub $QSUBARGS -j oe -N ${qjobname} -P $PROJECT << EOF
 
 if [ -r .bashrc ]; then  . .bashrc ; fi
+env
 export MOLPRO_OPTIONS="$MOLPRO_OPTIONS"
 export PATH=$JOBPATH:\$PATH
-#export TMPDIR2=\${TMPDIR2:-\$TMPDIR}
-export SCRATCHDIR=/scratch/$USER/$$.`echo $file | sed -e s,/,_,g`
+export SCRATCHDIR=${scratchdir}/\${PBS_JOBID}
 $debug
 echo cd $PWD
 cd $PWD
@@ -106,7 +112,6 @@ time $prog $OPTION $file
 fi
 env
 df -h
-echo TMPDIR=\$TMPDIR
 EOF
 
 done
