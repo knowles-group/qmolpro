@@ -14,16 +14,16 @@ defaultoptions="-n $max_tasks_per_node -d ${TMPDIR:-/tmp}"
                                                                                 
 # parse options
 systemconfigfile=$0.rc
-echo systemconfigfile=$systemconfigfile
-ls -l $systemconfigfile
+#echo systemconfigfile=$systemconfigfile
+#ls -l $systemconfigfile
 configfile=${HOME}/.${this}rc
 test -r $systemconfigfile && systemconfigfileoptions=$(cat ${systemconfigfile})
 test -r $configfile && configfileoptions=$(cat ${configfile})
-echo systemconfigfileoptions=$systemconfigfileoptions
-set -- `getopt gd:vW:n:l:q:P: $defaultoptions $systemconfigfileoptions $configfileoptions $*`
+#echo systemconfigfileoptions=$systemconfigfileoptions
+set -- `getopt gd:vW:n:l:q:x:P: $defaultoptions $systemconfigfileoptions $configfileoptions $*`
 parse_opts=0
 while [ "$1" != -- ]; do
-echo option $1 $2
+# echo option $1 $2
   case "$1" in
     -d) eval scratchdir="$2"; shift;;
     -g) debug=1 ;;
@@ -34,16 +34,21 @@ echo option $1 $2
     -n) NOPTION=$2; shift;;
     -q) QUEUE=$2; QSUBARGS="$QSUBARGS -q $2"; shift;;
     -P) PROJECT=$2; shift;;
+    -x) garbage=$2; shift;;
      *) parse_opts=1;;
   esac
   shift
 done
 shift
 
-# if [ x${PROJECT} == x ]; then
-#   echo "Project missing. Specify it with -P (possible in $HOME/.${this}rc), or via the PROJECT environment variable"
-#   exit 1;
-# fi
+if [ x${PROJECT} == xnone ]; then # use the special value 'none' in qmolpro.rc to denote that -P must be given later
+  echo "Project missing. Specify it with -P (possible in $HOME/.${this}rc), or via the PROJECT environment variable"
+  exit 1;
+fi
+
+if [ x${garbage} != x -a x${scratchdir} != x ]; then # garbage-collect any outstanding scratch directories
+    find $scratchdir -name 'PBS.*' -mtime -"$garbage" -print0 | xargs -0  rm -rf
+fi
 
 tasks_per_node=$max_tasks_per_node
 cpus=`echo $NOPTION | sed -e 's/\/.*$//'`
