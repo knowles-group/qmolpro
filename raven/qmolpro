@@ -10,7 +10,7 @@ prog=${this#${prefix}}
 if [ -z "$max_tasks_per_node" ]; then uname=$(uname); test $uname = Darwin && max_tasks_per_node=$(sysctl -n hw.ncpu) || max_tasks_per_node=$(nproc||echo 1) ; fi
 
 #default
-defaultoptions="-n $max_tasks_per_node -d ${TMPDIR:-/tmp}"
+defaultoptions="-P none -n $max_tasks_per_node -d ${TMPDIR:-/scratch/${USER}}"
                                                                                 
 # parse options
 systemconfigfile=$0.rc
@@ -20,8 +20,9 @@ configfile=${HOME}/.${this}rc
 test -r $systemconfigfile && systemconfigfileoptions=$(cat ${systemconfigfile})
 test -r $configfile && configfileoptions=$(cat ${configfile})
 #echo systemconfigfileoptions=$systemconfigfileoptions
-set -- `getopt gd:vW:n:l:q:x:P: $defaultoptions $systemconfigfileoptions $configfileoptions $*`
+set -- `getopt gd:vW:t:n:l:q:x:P:m: $defaultoptions $systemconfigfileoptions $configfileoptions $*`
 parse_opts=0
+MEMORY=350m
 while [ "$1" != -- ]; do
 # echo option $1 $2
   case "$1" in
@@ -31,8 +32,10 @@ while [ "$1" != -- ]; do
     -k) keeptmp=1 ;;
     -W) OPTION="$OPTION $2"; shift;;
     -l) QSUBARGS="$QSUBARGS -l $2"; shift;;
+    -m) MEMORY=$2; shift;;
     -n) NOPTION=$2; shift;;
-    -q) QUEUE=$2; QSUBARGS="$QSUBARGS -q $2"; shift;;
+    -t) OPTION="$OPTION $1 $2"; THREADS=$2; shift;;
+    -q) QUEUE=$2; QSUBARGS="$QSUBARGS -q $QUEUE"; shift;;
     -P) PROJECT=$2; shift;;
     -x) garbage=$2; shift;;
      *) parse_opts=1;;
@@ -40,6 +43,8 @@ while [ "$1" != -- ]; do
   shift
 done
 shift
+
+if [ x${QUEUE} = xserial ]; then NOPTION=1; QSUBARGS="$QSUBARGS -l place=free:shared" ; fi
 
 if [ x${PROJECT} == xnone ]; then # use the special value 'none' in qmolpro.rc to denote that -P must be given later
   echo "Project missing. Specify it with -P (possible in $HOME/.${this}rc), or via the PROJECT environment variable"
@@ -73,16 +78,23 @@ exit 1
 fi
 
 
+
+if [ "x$cpus" != "x1" -o x${QUEUE:-serial} != xserial ]; then
+  QSUBARGS="$QSUBARGS -l select=${nodes}:ncpus=${tasks_per_node}:mpiprocs=${tasks_per_node} "
+  MEMORY=$(echo "import math; print int(math.floor(8192.0/${tasks_per_node}))"|python)"m"
+else
+    if [ "x$MEMORY" != "x" ]; then
+	mem=$(echo ${MEMORY}|sed -e 's/m/*1024*1024/' -e 's/g/*1024*1024*1024/' -e 's/$/\/128\/1024\/1024))/' -e 's/^/import math; print int(math.ceil(1.0*/' |python)
+	QSUBARGS="$QSUBARGS -l select=1:ncpus=1:mem=${mem}g"
+    fi
+fi
+
 if [ ! -z $verbose ]; then
 echo 'Processors:      ' $cpus
 echo 'Tasks per node:  ' $tasks_per_node
 echo 'Nodes:           ' $nodes
+echo 'Memory:          ' $MEMORY
 fi;
-
-if [ "x$cpus" != "x1" ]; then
-  QSUBARGS="$QSUBARGS -l select=${nodes}:ncpus=${tasks_per_node}:mpiprocs=${tasks_per_node} "
-fi
-
 DIR=`/bin/pwd`
 
 
@@ -97,16 +109,18 @@ if [ -r .bashrc ]; then  . .bashrc ; fi
 export MOLPRO_OPTIONS="$MOLPRO_OPTIONS"
 export PATH=$JOBPATH:\$PATH
 export SCRATCHDIR=${scratchdir}/PBS.\${PBS_JOBID}
+export OMP_NUM_THREADS=\${THREADS:-1}
 $debug
 echo cd $PWD
 cd $PWD
 date
 hostname
+echo PATH=$PATH
 which $prog
 if [ $prog = molpro ]; then
 echo $prog -v -d \$SCRATCHDIR $OPTION $file
 pbsdsh -- mkdir -p \$SCRATCHDIR
-time $prog -n $cpus -d \$SCRATCHDIR $OPTION $file
+time $prog -m ${MEMORY} -n $cpus -d \$SCRATCHDIR $OPTION $file
 if test -z $keeptmp ; then
  pbsdsh -- rm -rf \$SCRATCHDIR
 fi
