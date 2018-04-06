@@ -108,11 +108,13 @@ qsub $QSUBARGS -j oe -N ${qjobname} -P $PROJECT << EOF
 echo "hello from start of job"
 if [ -r .bashrc ]; then  . .bashrc ; fi
 #module purge
+# need to find a better way of ensuring the right modules
 for  i in \$(echo $LOADEDMODULES|sed -e 's/:/ /g') ; do module load \$i; done
 module list
 export MOLPRO_OPTIONS="$MOLPRO_OPTIONS"
 export PATH=$PATH:\$JOBPATH:\$PATH
 export SCRATCHDIR=${scratchdir}/PBS.\${PBS_JOBID}
+# the right variable name?
 export OMP_NUM_THREADS=\${THREADS:-1}
 $debug
 echo cd $PWD
