@@ -11,7 +11,9 @@ if [ -z "$max_tasks_per_node" ]; then uname=$(uname); test $uname = Darwin && ma
 
 #default
 if [ x${PROJECT} = x ]; then
-    defaultoptions="-P none"
+    defaultoptions="-d /scratch/$USER -P none"
+else
+    defaultoptions="-d /scratch/$USER"
 fi
                                                                                 
 # parse options
