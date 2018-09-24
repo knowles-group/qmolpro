@@ -54,14 +54,14 @@ shift
 
 # hardware
 if [ x${QUEUE} = xcompute  -o x${QUEUE} = xdev ]; then
-    hardware_memory=184
+    hardware_memory=182
     hardware_cores=40
 elif [ x${QUEUE} = xhighmem ]; then
-    hardware_memory=376
+    hardware_memory=374
     hardware_cores=40
 else # should be htc
     QUEUE=htc
-    hardware_memory=184
+    hardware_memory=182
     hardware_cores=40
     if [ x${NOPTION} = x ]; then NOPTION=1 ; fi
     if [ x${MEMORY} = x ]; then
