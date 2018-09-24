@@ -44,6 +44,19 @@ while [ "$1" != -- ]; do
 done
 shift
 
+# hardware
+if [ x${QUEUE} = xcompute  -o x${QUEUE} = xdev ]; then
+    hardware_memory=192
+    hardware_cores=40
+elif [ x${QUEUE} = xhighmem ]; then
+    hardware_memory=384
+    hardware_cores=40
+else # should be HTC
+    QUEUE=HTC
+    hardware_memory=192
+    hardware_cores=40
+fi
+
 if [ x${QUEUE} = xserial ]; then NOPTION=1; QSUBARGS="$QSUBARGS -l place=free:shared" ; fi
 
 if [ x${PROJECT} == xnone ]; then # use the special value 'none' in qmolpro.rc to denote that -P must be given later
