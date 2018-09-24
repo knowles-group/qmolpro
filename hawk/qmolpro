@@ -10,7 +10,7 @@ prog=${this#${prefix}}
 if [ -z "$max_tasks_per_node" ]; then uname=$(uname); test $uname = Darwin && max_tasks_per_node=$(sysctl -n hw.ncpu) || max_tasks_per_node=$(nproc||echo 1) ; fi
 
 #default
-defaultoptions="-P none -n $max_tasks_per_node -d ${TMPDIR:-/scratch/${USER}}"
+defaultoptions="-P none -d ${TMPDIR:-/scratch/${USER}}"
                                                                                 
 # parse options
 systemconfigfile=$0.rc
@@ -20,9 +20,12 @@ configfile=${HOME}/.${this}rc
 test -r $systemconfigfile && systemconfigfileoptions=$(cat ${systemconfigfile})
 test -r $configfile && configfileoptions=$(cat ${configfile})
 #echo systemconfigfileoptions=$systemconfigfileoptions
-set -- `getopt gd:vW:t:n:l:q:x:P:m: $defaultoptions $systemconfigfileoptions $configfileoptions $*`
+#echo configfileoptions=$configfileoptions
+#echo defaultoptions=$defaultoptions
+set -- `getopt gd:vW:t:n:l:q:x:P:m:N: $defaultoptions $systemconfigfileoptions $configfileoptions $*`
 parse_opts=0
-MEMORY=360m
+MEMORY=
+TASKS_PER_NODE=
 while [ "$1" != -- ]; do
 # echo option $1 $2
   case "$1" in
@@ -32,10 +35,11 @@ while [ "$1" != -- ]; do
     -k) keeptmp=1 ;;
     -W) OPTION="$OPTION $2"; shift;;
     -l) QSUBARGS="$QSUBARGS -l $2"; shift;;
-    -m) MEMORY=$2; shift;;
+    -m) echo m option $2; MEMORY=$2; shift;;
     -n) NOPTION=$2; shift;;
+    -N) TASKS_PER_NODE=$2; shift;;
     -t) OPTION="$OPTION $1 $2"; THREADS=$2; shift;;
-    -q) QUEUE=$2; QSUBARGS="$QSUBARGS -q $QUEUE"; shift;;
+    -q) QUEUE=$2; shift;;
     -P) PROJECT=$2; shift;;
     -x) garbage=$2; shift;;
      *) parse_opts=1;;
@@ -46,18 +50,45 @@ shift
 
 # hardware
 if [ x${QUEUE} = xcompute  -o x${QUEUE} = xdev ]; then
-    hardware_memory=192
+    hardware_memory=180
     hardware_cores=40
 elif [ x${QUEUE} = xhighmem ]; then
-    hardware_memory=384
+    hardware_memory=372
     hardware_cores=40
 else # should be HTC
     QUEUE=HTC
-    hardware_memory=192
+    hardware_memory=180
     hardware_cores=40
+    if [ x${NOPTION} = x ]; then NOPTION=1 ; fi
+    if [ x${MEMORY} = x ]; then
+	MEMORY=$(echo "import math; print(int(math.floor(128.0*${hardware_memory}/${hardware_cores})))"|python)"m"
+    fi
 fi
 
-if [ x${QUEUE} = xserial ]; then NOPTION=1; QSUBARGS="$QSUBARGS -l place=free:shared" ; fi
+if [ x${NOPTION} = x ]; then NOPTION=$hardware_cores ; fi
+if [ x${TASKS_PER_NODE} = x ]; then
+    if [ x${MEMORY} = x ]; then
+	TASKS_PER_NODE=$hardware_cores
+    else
+	mem=$(echo ${MEMORY}|sed -e 's/m/*1024*1024/' -e 's/g/*1024*1024*1024/' -e 's/$/))/' -e 's/^/import math; print int(math.ceil(1.0*/' |python)
+	TASKS_PER_NODE=$(echo "import math; print(int(math.floor(${hardware_memory}*1024.*1024.*1024./${mem})))"|python)
+    fi
+fi
+
+if [ ${TASKS_PER_NODE} -gt ${NOPTION} ]; then TASKS_PER_NODE=${NOPTION}; fi
+
+if [ x${MEMORY} = x ]; then
+    MEMORY=$(echo "import math; print(int(math.floor(128.0*${hardware_memory}/${TASKS_PER_NODE})))"|python)"m"
+fi
+
+if [ x$verbose != x ]; then
+    echo QUEUE=$QUEUE
+    echo MEMORY=$MEMORY
+    echo TASKS_PER_NODE=$TASKS_PER_NODE
+    echo NOPTION=$NOPTION
+fi
+exit;
+					       
 
 if [ x${PROJECT} == xnone ]; then # use the special value 'none' in qmolpro.rc to denote that -P must be given later
   echo "Project missing. Specify it with -P (possible in $HOME/.${this}rc), or via the PROJECT environment variable"
@@ -65,6 +96,7 @@ if [ x${PROJECT} == xnone ]; then # use the special value 'none' in qmolpro.rc t
 fi
 
 if [ x${garbage} != x -a x${scratchdir} != x ]; then # garbage-collect any outstanding scratch directories
+#fixme
     find $scratchdir -name 'PBS.*' -mtime -"$garbage" -print0 | xargs -0  rm -rf
 fi
 
