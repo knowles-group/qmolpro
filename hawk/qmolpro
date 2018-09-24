@@ -133,6 +133,7 @@ echo sbatch $SBATCHARGS --job-name=${qjobname}
 sbatch $SBATCHARGS --job-name=${qjobname} --output=${qjobname}-slurm-%J.out << EOF
 #! /bin/sh
 echo "hello from start of job \$TMPDIR"
+echo "Project $PROJECT"
 if [ -r .bashrc ]; then  . .bashrc ; fi
 #module purge
 # need to find a better way of ensuring the right modules
@@ -165,6 +166,7 @@ fi
 env
 df -h
 vmstat -sSM
+grep -c ^processor /proc/cpuinfo
 EOF
 
 done
