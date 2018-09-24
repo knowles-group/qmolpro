@@ -10,7 +10,9 @@ prog=${this#${prefix}}
 if [ -z "$max_tasks_per_node" ]; then uname=$(uname); test $uname = Darwin && max_tasks_per_node=$(sysctl -n hw.ncpu) || max_tasks_per_node=$(nproc||echo 1) ; fi
 
 #default
-defaultoptions="-P none -d ${TMPDIR:-/scratch/${USER}}"
+if [ x${PROJECT} = x ]; then
+    defaultoptions="-P none"
+fi
                                                                                 
 # parse options
 systemconfigfile=$0.rc
@@ -34,7 +36,7 @@ while [ "$1" != -- ]; do
     -v) verbose=1 ;;
     -k) keeptmp=1 ;;
     -W) OPTION="$OPTION $2"; shift;;
-    -l) QSUBARGS="$QSUBARGS -l $2"; shift;;
+    -l) SBATCHARGS=$(echo $SBATCHARGS -l $2 | sed -e '/s/,/ /g'); shift;;
     -m) echo m option $2; MEMORY=$2; shift;;
     -n) NOPTION=$2; shift;;
     -N) TASKS_PER_NODE=$2; shift;;
@@ -50,14 +52,14 @@ shift
 
 # hardware
 if [ x${QUEUE} = xcompute  -o x${QUEUE} = xdev ]; then
-    hardware_memory=180
+    hardware_memory=184
     hardware_cores=40
 elif [ x${QUEUE} = xhighmem ]; then
-    hardware_memory=372
+    hardware_memory=376
     hardware_cores=40
-else # should be HTC
-    QUEUE=HTC
-    hardware_memory=180
+else # should be htc
+    QUEUE=htc
+    hardware_memory=184
     hardware_cores=40
     if [ x${NOPTION} = x ]; then NOPTION=1 ; fi
     if [ x${MEMORY} = x ]; then
@@ -87,7 +89,6 @@ if [ x$verbose != x ]; then
     echo TASKS_PER_NODE=$TASKS_PER_NODE
     echo NOPTION=$NOPTION
 fi
-exit;
 					       
 
 if [ x${PROJECT} == xnone ]; then # use the special value 'none' in qmolpro.rc to denote that -P must be given later
@@ -97,24 +98,9 @@ fi
 
 if [ x${garbage} != x -a x${scratchdir} != x ]; then # garbage-collect any outstanding scratch directories
 #fixme
-    find $scratchdir -name 'PBS.*' -mtime -"$garbage" -print0 | xargs -0  rm -rf
+    find $scratchdir -name 'SLURM.*' -mtime -"$garbage" -print0 | xargs -0  rm -rf
 fi
 
-tasks_per_node=$max_tasks_per_node
-cpus=`echo $NOPTION | sed -e 's/\/.*$//'`
-tasks_per_node=`echo $NOPTION | sed -e 's/^.*\///' -e 's/:.*$//'`
-if [ $tasks_per_node -eq $cpus ]; then
-    task_flag="total"
-    tasks_per_node=$max_tasks_per_node
-elif [ $tasks_per_node -gt $max_tasks_per_node ]; then
-    echo TASKS_PER_NODE too high, ignoring
-    task_flag="total"
-    tasks_per_node=$max_tasks_per_node
-fi
-typeset -i nodes
-let nodes=($cpus-1)/$tasks_per_node+1;
-if [ $nodes -eq 1 ]; then tasks_per_node=$cpus; fi
- 
 if [ $parse_opts -eq 1 ] ; then
 cat << EOF
 Usage: $SCRIPT -n CPUS/TASKS_PER_NODE -h HH[:MM[:SS]] [-v] [-k] -W MOLPRO_OPTION INPUT_FILES
@@ -124,33 +110,27 @@ fi
 
 
 
-if [ "x$cpus" != "x1" -o x${QUEUE:-serial} != xserial ]; then
-  QSUBARGS="$QSUBARGS -l select=${nodes}:ncpus=${tasks_per_node}:mpiprocs=${tasks_per_node} "
-  MEMORY=$(echo "import math; print(int(math.floor(8192.0/${tasks_per_node})))"|python)"m"
-else
-    if [ "x$MEMORY" != "x" ]; then
-	mem=$(echo ${MEMORY}|sed -e 's/m/*1024*1024/' -e 's/g/*1024*1024*1024/' -e 's/$/\/128\/1024\/1024))/' -e 's/^/import math; print int(math.ceil(1.0*/' |python)
-	QSUBARGS="$QSUBARGS -l select=1:ncpus=1:mem=${mem}g"
-    fi
-fi
-
 if [ ! -z $verbose ]; then
-echo 'Processors:      ' $cpus
-echo 'Tasks per node:  ' $tasks_per_node
-echo 'Nodes:           ' $nodes
+echo 'Processors:      ' $NOPTION
+echo 'Tasks per node:  ' $TASKS_PER_NODE
 echo 'Memory:          ' $MEMORY
 fi;
 DIR=`/bin/pwd`
 
+mem=$(echo ${MEMORY}|sed -e 's/m/*1024*1024/' -e 's/g/*1024*1024*1024/' -e 's/$/\/1024\/1024))/' -e 's/^/import math; print int(math.ceil(1.0*/' |python)
+SBATCHARGS="$SBATCHARGS --ntasks=$NOPTION --mem-per-cpu=$mem --ntasks-per-node=${TASKS_PER_NODE} -p ${QUEUE} -A ${PROJECT}"
+#SBATCHARGS="$SBATCHARGS --time=0-00:20 "
 
 if [ ! -z $debug ]; then debug='export MOLPRO_GA_DEBUG=1' ; fi
+export SCW_TPN_OVERRIDE=1
+
 for file in $* ; do
 jobname=`basename ${file}|sed -e 's/\.[a-zA-Z0-9]*$//'`
 qjobname=`echo "$jobname" | sed -e 's,[-+.],,g' -e 's,\(..........\).*,\1,'`
-echo qsub $QSUBARGS -j oe -N ${qjobname} -P $PROJECT
-qsub $QSUBARGS -j oe -N ${qjobname} -P $PROJECT << EOF
-
-echo "hello from start of job"
+echo sbatch $SBATCHARGS --job-name=${qjobname}
+sbatch $SBATCHARGS --job-name=${qjobname} --output=${qjobname}-slurm-%J.out << EOF
+#! /bin/sh
+echo "hello from start of job \$TMPDIR"
 if [ -r .bashrc ]; then  . .bashrc ; fi
 #module purge
 # need to find a better way of ensuring the right modules
@@ -158,7 +138,7 @@ for  i in \$(echo $LOADEDMODULES|sed -e 's/:/ /g') ; do module load \$i; done
 module list
 export MOLPRO_OPTIONS="$MOLPRO_OPTIONS"
 export PATH=$PATH:\$JOBPATH:\$PATH
-export SCRATCHDIR=${scratchdir}/PBS.\${PBS_JOBID}
+export SCRATCHDIR=${scratchdir}/SLURM.\${SLURM_JOBID}
 # the right variable name?
 export OMP_NUM_THREADS=\${THREADS:-1}
 $debug
@@ -169,12 +149,12 @@ hostname
 echo PATH=\$PATH
 which $prog
 if [ $prog = molpro ]; then
-echo $prog -v -d \$SCRATCHDIR $OPTION $file
-pbsdsh -- mkdir -p \$SCRATCHDIR
-time $prog -m ${MEMORY} -n $cpus -d \$SCRATCHDIR $OPTION $file
+echo $prog -m ${MEMORY} -n $NOPTION -d \$SCRATCHDIR $OPTION $file
+srun mkdir -p \$SCRATCHDIR
+time $prog -v -m ${MEMORY} -n $NOPTION -d \$SCRATCHDIR $OPTION $file
 ls -l \$SCRATCHDIR
 if test -z $keeptmp ; then
- pbsdsh -- rm -rf \$SCRATCHDIR
+ srun rm -rf \$SCRATCHDIR
 fi
 else
 echo $prog $OPTION $file
@@ -182,12 +162,7 @@ time $prog $OPTION $file
 fi
 env
 df -h
+vmstat -sSM
 EOF
 
 done
-
-#echo PBS_NODEFILE=\$PBS_NODEFILE
-#cat \$PBS_NODEFILE
-#echo ======================
-
-#export PATH=$JOBPATH:/opt/molpro/bin:\$PATH:/usr/local/bin
