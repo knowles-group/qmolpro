@@ -39,7 +39,7 @@ while [ "$1" != -- ]; do
     -k) keeptmp=1 ;;
     -W) OPTION="$OPTION $2"; shift;;
     -l) SBATCHARGS=$(echo $SBATCHARGS -l $2 | sed -e '/s/,/ /g'); shift;;
-    -m) echo m option $2; MEMORY=$2; shift;;
+    -m) MEMORY=$2; shift;;
     -n) NOPTION=$2; shift;;
     -N) TASKS_PER_NODE=$2; shift;;
     -t) OPTION="$OPTION $1 $2"; THREADS=$2; shift;;
@@ -74,7 +74,7 @@ if [ x${TASKS_PER_NODE} = x ]; then
     if [ x${MEMORY} = x ]; then
 	TASKS_PER_NODE=$hardware_cores
     else
-	mem=$(echo ${MEMORY}|sed -e 's/m/*1024*1024/' -e 's/g/*1024*1024*1024/' -e 's/$/))/' -e 's/^/import math; print int(math.ceil(1.0*/' |python)
+	mem=$(echo ${MEMORY}|sed -e 's/m/*1024*1024/' -e 's/g/*1024*1024*1024/' -e 's/$/*8))/' -e 's/^/import math; print int(math.ceil(1.0*/' |python)
 	TASKS_PER_NODE=$(echo "import math; print(int(math.floor(${hardware_memory}*1024.*1024.*1024./${mem})))"|python)
     fi
 fi
@@ -167,6 +167,7 @@ env
 df -h
 vmstat -sSM
 grep -c ^processor /proc/cpuinfo
+srun hostname
 EOF
 
 done
