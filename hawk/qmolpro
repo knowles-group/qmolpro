@@ -132,7 +132,6 @@ qjobname=`echo "$jobname" | sed -e 's,[-+.],,g' -e 's,\(..........\).*,\1,'`
 echo sbatch $SBATCHARGS --job-name=${qjobname}
 sbatch $SBATCHARGS --job-name=${qjobname} --output=${qjobname}-slurm-%J.out << EOF
 #! /bin/sh
-echo "hello from start of job \$TMPDIR"
 echo "Project $PROJECT"
 if [ -r .bashrc ]; then  . .bashrc ; fi
 #module purge
