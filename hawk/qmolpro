@@ -26,7 +26,7 @@ test -r $configfile && configfileoptions=$(cat ${configfile})
 #echo systemconfigfileoptions=$systemconfigfileoptions
 #echo configfileoptions=$configfileoptions
 #echo defaultoptions=$defaultoptions
-set -- `getopt gd:vW:t:n:l:q:x:P:m:N: $defaultoptions $systemconfigfileoptions $configfileoptions $*`
+set -- `getopt gd:vW:t:n:l:q:x:P:m:N:h: $defaultoptions $systemconfigfileoptions $configfileoptions $*`
 parse_opts=0
 MEMORY=
 TASKS_PER_NODE=
@@ -38,7 +38,7 @@ while [ "$1" != -- ]; do
     -v) verbose=1 ;;
     -k) keeptmp=1 ;;
     -W) OPTION="$OPTION $2"; shift;;
-    -l) SBATCHARGS=$(echo $SBATCHARGS -l $2 | sed -e '/s/,/ /g'); shift;;
+    -l) SBATCHARGS=$(echo $SBATCHARGS $2 | sed -e '/s/,/ /g'); shift;;
     -m) MEMORY=$2; shift;;
     -n) NOPTION=$2; shift;;
     -N) TASKS_PER_NODE=$2; shift;;
@@ -46,6 +46,7 @@ while [ "$1" != -- ]; do
     -q) QUEUE=$2; shift;;
     -P) PROJECT=$2; shift;;
     -x) garbage=$2; shift;;
+    -h) SBATCHARGS="$SBATCHARGS --time=$2"; shift;;
      *) parse_opts=1;;
   esac
   shift
@@ -103,9 +104,34 @@ if [ x${garbage} != x -a x${scratchdir} != x ]; then # garbage-collect any outst
     find $scratchdir -name 'SLURM.*' -mtime -"$garbage" -print0 | xargs -0  rm -rf
 fi
 
-if [ $parse_opts -eq 1 ] ; then
+if [ $parse_opts -eq 1 -o x"$*" = x ] ; then
 cat << EOF
-Usage: $SCRIPT -n CPUS/TASKS_PER_NODE -h HH[:MM[:SS]] [-v] [-k] -W MOLPRO_OPTION INPUT_FILES
+Usage: $0 -n CPUS -h HH[:MM[:SS]] [-v] [-m memory] [-q partition] [-P project] [-l further,sbatch,options] [-W MOLPRO_OPTION] INPUT_FILES
+
+Submits one or more Molpro input files into the batch system. If no arguments
+are specified, a serial job is sent to the htc Slurm partition. The job
+will use the molpro found first in \$PATH of the submitting shell.
+
+PRINCIPAL OPTIONS
+
+  -n Number of MPI processes desired. Default is 1 if job goes to htc partition,
+     otherwise the number of processes that can fit in one dedicated node,
+     taking into account the -m option.
+
+  -m The memory allocated to each MPI process, in units of 8-byte words. The
+     suffices k, M, G may be used in the usual way. The default is the node
+     memory divided by the node processor count, except when -n specifies a
+     smaller number of processes than in one node, and the destination is not
+     htc, when the whole node memory will be used. To allow this mechanism to
+     work properly, the Molpro input file should not normally contain any
+     memory directives.
+
+  -q The Slurm partition (default htc).
+
+  -P SCW project number. If omitted, it will be looked for in the environment
+     variable PROJECT. Note that it is also possible to place default options
+     for ${this} in the file ${configfile}.
+
 EOF
 exit 1
 fi
@@ -129,8 +155,8 @@ export SCW_TPN_OVERRIDE=1
 for file in $* ; do
 jobname=`basename ${file}|sed -e 's/\.[a-zA-Z0-9]*$//'`
 qjobname=`echo "$jobname" | sed -e 's,[-+.],,g' -e 's,\(..........\).*,\1,'`
-echo sbatch $SBATCHARGS --job-name=${qjobname}
-sbatch $SBATCHARGS --job-name=${qjobname} --output=${qjobname}-slurm-%J.out << EOF
+echo sbatch $SBATCHARGS --job-name=${qjobname} --output=${jobname}-slurm-%J.out 
+sbatch $SBATCHARGS --job-name=${qjobname} --output=${jobname}-slurm-%J.out << EOF
 #! /bin/sh
 echo "Project $PROJECT"
 if [ -r .bashrc ]; then  . .bashrc ; fi
