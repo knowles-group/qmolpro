@@ -106,7 +106,7 @@ fi
 
 if [ $parse_opts -eq 1 -o x"$*" = x ] ; then
 cat << EOF
-Usage: $0 -n CPUS -h HH[:MM[:SS]] [-v] [-m memory] [-q partition] [-P project] [-l further,sbatch,options] [-W MOLPRO_OPTION] INPUT_FILES
+Usage: $0 -n tasks -h HH[:MM[:SS]] [-v] [-m memory] [-q partition] [-P project] [-l further,sbatch,options] [-W MOLPRO_OPTION] INPUT_FILES
 
 Submits one or more Molpro input files into the batch system. If no arguments
 are specified, a serial job is sent to the htc Slurm partition. The job
