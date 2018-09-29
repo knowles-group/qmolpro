@@ -159,7 +159,7 @@ echo sbatch $SBATCHARGS --job-name=${qjobname} --output=${jobname}-slurm-%J.out
 sbatch $SBATCHARGS --job-name=${qjobname} --output=${jobname}-slurm-%J.out << EOF
 #! /bin/sh
 echo "Project $PROJECT"
-if [ -r .bashrc ]; then  . .bashrc ; fi
+if [ -r ./.bashrc ]; then  . ./.bashrc ; fi
 #module purge
 # need to find a better way of ensuring the right modules
 for  i in \$(echo $LOADEDMODULES|sed -e 's/:/ /g') ; do module load \$i; done
