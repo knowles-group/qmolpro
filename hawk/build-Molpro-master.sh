@@ -43,12 +43,6 @@ git checkout master
 # Molpro's official repository and branches
 officialOrigin=git@www.molpro.net:Molpro
 officialBranchRegExp='[0-9][0-9]|master|release'
-# official branches should be pushed to officialOrigin not mirror
-git remote add officialOrigin $officialOrigin
-branchprefix=remotes/origin/
-for branch in $(git branch -a --no-color --no-column | egrep "^ *$branchprefix($officialBranchRegExp)" | sed -e 's/\*//' | sed -e "s@$branchprefix@@" | sort | uniq) ; do
-    git config --add branch.$branch.pushremote officialOrigin
-done
 
 # official branches should be pushed to officialOrigin not mirror
 git remote add officialOrigin $officialOrigin
