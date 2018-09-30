@@ -39,6 +39,24 @@ cd $working_directory
 
 git clone git@bitbucket.org:pjknowles/myMolpro Molpro || exit 1
 cd Molpro
+git checkout master
+# Molpro's official repository and branches
+officialOrigin=git@www.molpro.net:Molpro
+officialBranchRegExp='[0-9][0-9]|master|release'
+# official branches should be pushed to officialOrigin not mirror
+git remote add officialOrigin $officialOrigin
+branchprefix=remotes/origin/
+for branch in $(git branch -a --no-color --no-column | egrep "^ *$branchprefix($officialBranchRegExp)" | sed -e 's/\*//' | sed -e "s@$branchprefix@@" | sort | uniq) ; do
+    git config --add branch.$branch.pushremote officialOrigin
+done
+
+# official branches should be pushed to officialOrigin not mirror
+git remote add officialOrigin $officialOrigin
+branchprefix=remotes/origin/
+for branch in $(git branch -a --no-color --no-column | egrep "^ *$branchprefix($officialBranchRegExp)" | sed -e 's/\*//' | sed -e "s@$branchprefix@@" | sort | uniq) ; do
+    git config --add branch.$branch.pushremote officialOrigin
+done
+
 ./configure FC=ifort CXX=mpicxx --enable-mpp=ga CPPFLAGS="-I${working_directory}/include -I${working_directory}/include/eigen3" --prefix=$prefix LDFLAGS="-libverbs -L ${working_directory}/lib" LAUNCHER='srun %x' --bindir=${prefix}/bin
 make -j$make_processes || exit 1
 make uninstall
