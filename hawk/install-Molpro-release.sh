@@ -6,18 +6,19 @@
 
 # configuration
 molpro_version=2018.1.0 # check https://www.molpro.net/download/index.php?version=2018.1 to see what's available
-prefix=$HOME/install-Molpro-release # where to install to
+prefix=$HOME/software/install-Molpro-release # where to install to
 working_directory=/scratch/$USER/install-Molpro-release # careful! if this directory already exists it will be completely destroyed first
-GITPATH=/home/c.sacpjk/bin # need git version 1.9 or higher
+#GITPATH=/home/c.sacpjk/bin # need git version 1.9 or higher
 module load compiler/gnu/6
 module load compiler/intel/2018/3
 module load mpi/intel
+module load raven; module load git # need git version 1.9 or higher
 eigen_version=3.3.5
 ga_version=v5.7
 make_processes=50
 # end configuration - shouldn't need to change below here
 
-export PATH=$GITPATH:$PATH
+if [ x$GITPATH != x ]; then export PATH=$GITPATH:$PATH; fi
 
 rm -fr $working_directory && mkdir -p $working_directory && cd $working_directory || exit 1
 mkdir -p ${prefix}/bin || exit 1

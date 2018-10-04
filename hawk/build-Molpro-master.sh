@@ -4,18 +4,20 @@
 # The installer needs personal permission to clone git@bitbucket.org:pjknowles/myMolpro
 
 # configuration
-prefix=$HOME # where to install to
+prefix=$HOME/software # where to install to
 working_directory=$HOME/trees/Molpro # careful! if this directory already exists it will be completely destroyed first
-GITPATH=/home/c.sacpjk/bin # need git version 1.9 or higher
+#working_directory=/scratch/$USER/trees/Molpro # careful! if this directory already exists it will be completely destroyed first
+# GITPATH=/home/c.sacpjk/bin # need git version 1.9 or higher
 module load compiler/gnu/6
 module load compiler/intel/2018/3
 module load mpi/intel
+module load raven; module load git
 eigen_version=3.3.5
 ga_version=v5.7
 make_processes=50
 # end configuration - shouldn't need to change below here
 
-export PATH=$GITPATH:$PATH
+if [ x"$GITPATH" != x ]; then export PATH=$GITPATH:$PATH ; fi
 
 rm -fr $working_directory && mkdir -p $working_directory && cd $working_directory || exit 1
 mkdir -p ${prefix}/bin || exit 1
