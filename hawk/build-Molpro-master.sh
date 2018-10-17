@@ -2,16 +2,37 @@
 
 # Build Molpro for Hawk
 # The installer needs personal permission to clone git@bitbucket.org:pjknowles/myMolpro
+compilersystem=intel
+if [ $1 = gcc ]; then compilersystem=gcc; suffix='-gcc' ; fi
 
 # configuration
+if [ $compilersystem = intel ]; then
 prefix=$HOME/software # where to install to
 working_directory=$HOME/trees/Molpro # careful! if this directory already exists it will be completely destroyed first
-#working_directory=/scratch/$USER/trees/Molpro # careful! if this directory already exists it will be completely destroyed first
+else
+prefix=$HOME/software${suffix} # where to install to
+working_directory=/scratch/$USER/trees/Molpro${suffix} # careful! if this directory already exists it will be completely destroyed first
+fi
 # GITPATH=/home/c.sacpjk/bin # need git version 1.9 or higher
+module load raven; module load git
+if [ $compilersystem = intel ]; then
 module load compiler/gnu/6
 module load compiler/intel/2018/3
 module load mpi/intel
-module load raven; module load git
+MPICXX=mpicxx
+MPICC=mpicc
+FC=mpif90
+CXXFLAGS='-xCORE-AVX512'
+else
+module load compiler/gnu/8
+module load compiler/intel/2018/3
+module load mpi/intel
+MPICXX=mpigxx
+CXXFLAGS='-cxx=g++ -mavx512f -mavx512cd -mavx512bw -mavx512dq -mavx512vl -mavx512ifma -mavx512vbmi'
+MPICC=mpigcc
+CFLAGS='-cc=gcc'
+FC=gfortran
+fi
 eigen_version=3.3.5
 ga_version=v5.7
 make_processes=50
@@ -26,7 +47,7 @@ git clone https://github.com/GlobalArrays/ga || exit 1
 cd ga || exit 1
 git checkout $ga_version || exit 1
 ./autogen.sh
-./configure FC=mpif90 CXX=mpicxx CC=mpicc --with-openib --prefix=$working_directory --with-blas=no --with-lapack=no --with-scalapack=no --disable-f77
+./configure MPICC=${MPICC} CC=${MPICC} CFLAGS="${CFLAGS}" --with-openib --prefix=$working_directory --with-blas=no --with-lapack=no --with-scalapack=no --disable-f77
 make -j$make_processes && make install
 cd $working_directory
 
@@ -53,7 +74,10 @@ for branch in $(git branch -a --no-color --no-column | egrep "^ *$branchprefix($
     git config --add branch.$branch.pushremote officialOrigin
 done
 
-./configure FC=ifort CXX=mpicxx --enable-mpp=ga CPPFLAGS="-I${working_directory}/include -I${working_directory}/include/eigen3" --prefix=$prefix LDFLAGS="-libverbs -L ${working_directory}/lib" LAUNCHER='srun %x' --bindir=${prefix}/bin
+module list
+echo $PATH
+echo ./configure FC=${FC}  CXX=${MPICXX} CXXFLAGS="${CXXFLAGS}"  --enable-mpp=ga CPPFLAGS="-I${working_directory}/include -I${working_directory}/include/eigen3" --prefix=$prefix LDFLAGS="-libverbs -L ${working_directory}/lib" LAUNCHER='srun %x' --bindir=${prefix}/bin
+./configure FC=${FC}  CXX=${MPICXX} CXXFLAGS="${CXXFLAGS}"  --enable-mpp=ga CPPFLAGS="-I${working_directory}/include -I${working_directory}/include/eigen3" --prefix=$prefix LDFLAGS="-libverbs -L ${working_directory}/lib" LAUNCHER='srun %x' --bindir=${prefix}/bin
 make -j$make_processes || exit 1
 make uninstall
 make install
