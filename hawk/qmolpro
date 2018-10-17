@@ -57,9 +57,11 @@ shift
 if [ x${QUEUE} = xcompute  -o x${QUEUE} = xdev ]; then
     hardware_memory=182
     hardware_cores=40
+    SBATCHARGS="$SBATCHARGS --exclusive"
 elif [ x${QUEUE} = xhighmem ]; then
     hardware_memory=374
     hardware_cores=40
+    SBATCHARGS="$SBATCHARGS --exclusive"
 else # should be htc
     QUEUE=htc
     hardware_memory=182
@@ -81,6 +83,10 @@ if [ x${TASKS_PER_NODE} = x ]; then
 fi
 
 if [ ${TASKS_PER_NODE} -gt ${NOPTION} ]; then TASKS_PER_NODE=${NOPTION}; fi
+if [ ${NOPTION} -gt ${TASKS_PER_NODE} ]; then 
+SBATCHARGS="$SBATCHARGS --exclusive";
+if [ x${QUEUE} = xhtc ]; then QUEUE=compute ; fi
+fi
 
 if [ x${MEMORY} = x ]; then
     MEMORY=$(echo "import math; print(int(math.floor(128.0*${hardware_memory}/${TASKS_PER_NODE})))"|python)"m"

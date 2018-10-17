@@ -3,36 +3,35 @@
 # Build Molpro for Hawk
 # The installer needs personal permission to clone git@bitbucket.org:pjknowles/myMolpro
 compilersystem=intel
-if [ $1 = gcc ]; then compilersystem=gcc; suffix='-gcc' ; fi
+if [ x$1 = xgnu ]; then compilersystem=gnu; suffix='-gnu' ; fi
 
 # configuration
-if [ $compilersystem = intel ]; then
-prefix=$HOME/software # where to install to
-working_directory=$HOME/trees/Molpro # careful! if this directory already exists it will be completely destroyed first
-else
 prefix=$HOME/software${suffix} # where to install to
 working_directory=/scratch/$USER/trees/Molpro${suffix} # careful! if this directory already exists it will be completely destroyed first
-fi
 # GITPATH=/home/c.sacpjk/bin # need git version 1.9 or higher
 module load raven; module load git
 if [ $compilersystem = intel ]; then
 module load compiler/gnu/6
 module load compiler/intel/2018/3
-module load mpi/intel
+module load mpi/intel/2018/3
 MPICXX=mpicxx
 MPICC=mpicc
 FC=mpif90
 CXXFLAGS='-xCORE-AVX512'
+FCFLAGS='-xCORE-AVX512'
 else
 module load compiler/gnu/8
 module load compiler/intel/2018/3
-module load mpi/intel
+module load mpi/intel/2018/3
 MPICXX=mpigxx
-CXXFLAGS='-cxx=g++ -mavx512f -mavx512cd -mavx512bw -mavx512dq -mavx512vl -mavx512ifma -mavx512vbmi'
+#FCFLAGS='-mavx512f -mavx512cd -mavx512bw -mavx512dq -mavx512vl -mavx512ifma -mavx512vbmi'
+FCFLAGS='-march=skylake'
+CXXFLAGS="-cxx=g++ ${FCFLAGS}"
 MPICC=mpigcc
 CFLAGS='-cc=gcc'
 FC=gfortran
 fi
+module list
 eigen_version=3.3.5
 ga_version=v5.7
 make_processes=50
@@ -76,8 +75,8 @@ done
 
 module list
 echo $PATH
-echo ./configure FC=${FC}  CXX=${MPICXX} CXXFLAGS="${CXXFLAGS}"  --enable-mpp=ga CPPFLAGS="-I${working_directory}/include -I${working_directory}/include/eigen3" --prefix=$prefix LDFLAGS="-libverbs -L ${working_directory}/lib" LAUNCHER='srun %x' --bindir=${prefix}/bin
-./configure FC=${FC}  CXX=${MPICXX} CXXFLAGS="${CXXFLAGS}"  --enable-mpp=ga CPPFLAGS="-I${working_directory}/include -I${working_directory}/include/eigen3" --prefix=$prefix LDFLAGS="-libverbs -L ${working_directory}/lib" LAUNCHER='srun %x' --bindir=${prefix}/bin
+echo ./configure FC=${FC}  CXX=${MPICXX} FCFLAGS="${FCFLAGS}" CXXFLAGS="${CXXFLAGS}"  --enable-mpp=ga CPPFLAGS="-I${working_directory}/include -I${working_directory}/include/eigen3" --prefix=$prefix LDFLAGS="-libverbs -L ${working_directory}/lib" LAUNCHER='srun %x' --bindir=${prefix}/bin
+./configure FC=${FC}  CXX=${MPICXX} FCFLAGS="${FCFLAGS}" CXXFLAGS="${CXXFLAGS}"  --enable-mpp=ga CPPFLAGS="-I${working_directory}/include -I${working_directory}/include/eigen3" --prefix=$prefix LDFLAGS="-libverbs -L ${working_directory}/lib" LAUNCHER='srun %x' --bindir=${prefix}/bin
 make -j$make_processes || exit 1
 make uninstall
 make install
