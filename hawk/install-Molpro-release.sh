@@ -6,7 +6,7 @@
 
 # configuration
 molpro_version=2018.1.0 # check https://www.molpro.net/download/index.php?version=2018.1 to see what's available
-prefix=$HOME/software/install-Molpro-release # where to install to
+prefix=/home/scwc0005/software/molpro/release # where to install to
 working_directory=/scratch/$USER/install-Molpro-release # careful! if this directory already exists it will be completely destroyed first
 #GITPATH=/home/c.sacpjk/bin # need git version 1.9 or higher
 module load compiler/gnu/6
@@ -27,7 +27,7 @@ git clone https://github.com/GlobalArrays/ga || exit 1
 cd ga || exit 1
 git checkout $ga_version || exit 1
 ./autogen.sh
-./configure FC=mpif90 CXX=mpicxx CC=mpicc --with-openib --prefix=$working_directory --with-blas=no --with-lapack=no --with-scalapack=no --disable-f77
+./configure FC=mpif90 CXXFLAGS= '-xCORE-AVX512' FCFLAGS= '-xCORE-AVX512' CXX=mpicxx CC=mpicc --with-openib --prefix=$working_directory --with-blas=no --with-lapack=no --with-scalapack=no --disable-f77
 make -j$make_processes && make install
 cd $working_directory
 
