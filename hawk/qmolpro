@@ -168,6 +168,9 @@ echo "Project $PROJECT"
 if [ -r ./.bashrc ]; then  . ./.bashrc ; fi
 #module purge
 # need to find a better way of ensuring the right modules
+module load compiler/gnu/6
+module load compiler/intel/2018/3
+module load mpi/intel
 for  i in \$(echo $LOADEDMODULES|sed -e 's/:/ /g') ; do module load \$i; done
 module list
 export MOLPRO_OPTIONS="$MOLPRO_OPTIONS"
