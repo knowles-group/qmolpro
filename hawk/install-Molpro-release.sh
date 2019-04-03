@@ -5,7 +5,7 @@
 # Go to https://www.molpro.net/licensee/licensee.php?portal=licensee&choice=Account+information+and+ordering to request it (log in with user 'cardiff')
 
 # configuration
-molpro_version=2018.1.0 # check https://www.molpro.net/download/index.php?version=2018.1 to see what's available
+molpro_version=201.1.2 # check https://www.molpro.net/download/to see what's available
 prefix=/home/scwc0005/software/molpro/release # where to install to
 working_directory=/scratch/$USER/install-Molpro-release # careful! if this directory already exists it will be completely destroyed first
 #GITPATH=/home/c.sacpjk/bin # need git version 1.9 or higher
@@ -13,7 +13,7 @@ module load compiler/gnu/6
 module load compiler/intel/2018/3
 module load mpi/intel
 module load raven; module load git # need git version 1.9 or higher
-eigen_version=3.3.5
+eigen_version=3.3.7
 ga_version=v5.7
 make_processes=50
 # end configuration - shouldn't need to change below here
