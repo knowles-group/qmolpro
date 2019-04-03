@@ -5,7 +5,7 @@
 # Go to https://www.molpro.net/licensee/licensee.php?portal=licensee&choice=Account+information+and+ordering to request it (log in with user 'cardiff')
 
 # configuration
-molpro_version=201.1.2 # check https://www.molpro.net/download/to see what's available
+molpro_version=2019.1.2 # check https://www.molpro.net/download/to see what's available
 prefix=/home/scwc0005/software/molpro/release # where to install to
 working_directory=/scratch/$USER/install-Molpro-release # careful! if this directory already exists it will be completely destroyed first
 #GITPATH=/home/c.sacpjk/bin # need git version 1.9 or higher
