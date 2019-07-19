@@ -12,8 +12,8 @@ working_directory=/scratch/$USER/trees/Molpro${suffix} # careful! if this direct
 module load raven; module load git
 if [ $compilersystem = intel ]; then
 module load compiler/gnu/6
-module load compiler/intel/2018/3
-module load mpi/intel/2018/3
+module load compiler/intel/2019/3
+module load mpi/intel/2019/3
 MPICXX=mpicxx
 MPICC=mpicc
 FC=mpif90
@@ -21,8 +21,8 @@ CXXFLAGS='-xCORE-AVX512'
 FCFLAGS='-xCORE-AVX512'
 else
 module load compiler/gnu/8
-module load compiler/intel/2018/3
-module load mpi/intel/2018/3
+module load compiler/intel/2019/3
+module load mpi/intel/2019/3
 MPICXX=mpigxx
 #FCFLAGS='-mavx512f -mavx512cd -mavx512bw -mavx512dq -mavx512vl -mavx512ifma -mavx512vbmi'
 FCFLAGS='-march=skylake'
@@ -59,19 +59,9 @@ cmake -DCMAKE_INSTALL_PREFIX=${working_directory} ..
 make install
 cd $working_directory
 
-git clone git@bitbucket.org:pjknowles/myMolpro Molpro || exit 1
+git clone git@gitlab.com:knowlespj/Molpro Molpro || exit 1
 cd Molpro
 git checkout master
-# Molpro's official repository and branches
-officialOrigin=git@www.molpro.net:Molpro
-officialBranchRegExp='[0-9][0-9]|master|release'
-
-# official branches should be pushed to officialOrigin not mirror
-git remote add officialOrigin $officialOrigin
-branchprefix=remotes/origin/
-for branch in $(git branch -a --no-color --no-column | egrep "^ *$branchprefix($officialBranchRegExp)" | sed -e 's/\*//' | sed -e "s@$branchprefix@@" | sort | uniq) ; do
-    git config --add branch.$branch.pushremote officialOrigin
-done
 
 module list
 echo $PATH
