@@ -30,6 +30,7 @@ set -- `getopt gd:vW:t:n:l:q:x:P:m:N:h: $defaultoptions $systemconfigfileoptions
 parse_opts=0
 MEMORY=
 TASKS_PER_NODE=
+EXCLUSIVE=
 while [ "$1" != -- ]; do
 # echo option $1 $2
   case "$1" in
@@ -47,6 +48,7 @@ while [ "$1" != -- ]; do
     -P) PROJECT=$2; shift;;
     -x) garbage=$2; shift;;
     -h) SBATCHARGS="$SBATCHARGS --time=$2"; shift;;
+    -ex) SBATCHARGS="$SBATCHARGS --exclusive"; exclusive=1 ;;
      *) parse_opts=1;;
   esac
   shift
@@ -54,51 +56,42 @@ done
 shift
 
 # hardware
-if [ x${QUEUE} = xcompute  -o x${QUEUE} = xdev ]; then
+hardware_cores=40
+if [ x${QUEUE} = xcompute  -o x${QUEUE} = xdev -o x${QUEUE} = xhtc ]; then
     hardware_memory=182
-    hardware_cores=40
-    SBATCHARGS="$SBATCHARGS --exclusive"
 elif [ x${QUEUE} = xhighmem ]; then
     hardware_memory=374
-    hardware_cores=40
-    SBATCHARGS="$SBATCHARGS --exclusive"
 else # should be htc
+    echo "Unknown partition specification - defaulting to htc"
     QUEUE=htc
     hardware_memory=182
-    hardware_cores=40
-    if [ x${NOPTION} = x ]; then NOPTION=1 ; fi
-    if [ x${MEMORY} = x ]; then
-	MEMORY=$(echo "import math; print(int(math.floor(128.0*${hardware_memory}/${hardware_cores})))"|python)"m"
-    fi
 fi
 
-if [ x${NOPTION} = x ]; then NOPTION=$hardware_cores ; fi
+if [ x${NOPTION} = x ]; then 
+    if [ ${QUEUE} = htc ]; then
+        NOPTION=1
+        TASKS_PER_NODE=1
+        MEMORY=$(echo "import math; print(int(math.floor(128.0*${hardware_memory}/${hardware_cores})))"|python)"m"
+    else
+        NOPTION=8 
+
 if [ x${TASKS_PER_NODE} = x ]; then
-    if [ x${MEMORY} = x ]; then
-	TASKS_PER_NODE=$hardware_cores
+    if [ ${NOPTION} -gt 40 ]; then
+        echo "If submitting to more than one node, please specify the -N (number of tasks per node) option"
+        exit 1;
+    elif [ x${MEMORY} = x ]; then
+	TASKS_PER_NODE=${NOPTION}
     else
 	mem=$(echo ${MEMORY}|sed -e 's/m/*1024*1024/' -e 's/g/*1024*1024*1024/' -e 's/$/*8))/' -e 's/^/import math; print int(math.ceil(1.0*/' |python)
 	TASKS_PER_NODE=$(echo "import math; print(int(math.floor(${hardware_memory}*1024.*1024.*1024./${mem})))"|python)
     fi
 fi
 
-if [ ${TASKS_PER_NODE} -gt ${NOPTION} ]; then TASKS_PER_NODE=${NOPTION}; fi
-if [ ${NOPTION} -gt ${TASKS_PER_NODE} ]; then 
-SBATCHARGS="$SBATCHARGS --exclusive";
-if [ x${QUEUE} = xhtc ]; then QUEUE=compute ; fi
-fi
+if [${TASKS_PER_NODE} -gt ${NOPTION}]; then TASKS_PER_NODE=${NOPTION}; fi
 
 if [ x${MEMORY} = x ]; then
     MEMORY=$(echo "import math; print(int(math.floor(128.0*${hardware_memory}/${TASKS_PER_NODE})))"|python)"m"
 fi
-
-if [ x$verbose != x ]; then
-    echo QUEUE=$QUEUE
-    echo MEMORY=$MEMORY
-    echo TASKS_PER_NODE=$TASKS_PER_NODE
-    echo NOPTION=$NOPTION
-fi
-					       
 
 if [ x${PROJECT} == xnone ]; then # use the special value 'none' in qmolpro.rc to denote that -P must be given later
   echo "Project missing. Specify it with -P (possible in $HOME/.${this}rc), or via the PROJECT environment variable"
@@ -112,17 +105,19 @@ fi
 
 if [ $parse_opts -eq 1 -o x"$*" = x ] ; then
 cat << EOF
-Usage: $0 -n tasks -h HH[:MM[:SS]] [-v] [-m memory] [-q partition] [-P project] [-l further,sbatch,options] [-W MOLPRO_OPTION] INPUT_FILES
+Usage: $0 -n tasks -N tasts_per_node -t threads -h HH[:MM[:SS]] [-v] [-m memory] [-q partition] [-P project] [-l further,sbatch,options] [-ex] [-W MOLPRO_OPTION] INPUT_FILES
 
 Submits one or more Molpro input files into the batch system. If no arguments
-are specified, a serial job is sent to the htc Slurm partition. The job
-will use the molpro found first in \$PATH of the submitting shell.
+are specified, a serial job with 582m of memory is sent to the htc Slurm partition. 
+The job will use the molpro found first in \$PATH of the submitting shell.
 
 PRINCIPAL OPTIONS
 
   -n Number of MPI processes desired. Default is 1 if job goes to htc partition,
      otherwise the number of processes that can fit in one dedicated node,
      taking into account the -m option.
+
+  -N Number of MPI processes per node. Important to specify if using more than one node
 
   -m The memory allocated to each MPI process, in units of 8-byte words. The
      suffices k, M, G may be used in the usual way. The default is the node
@@ -138,13 +133,14 @@ PRINCIPAL OPTIONS
      variable PROJECT. Note that it is also possible to place default options
      for ${this} in the file ${configfile}.
 
+  -ex If you want to run on the node(s) alone (may take longer time in the queue)
+
 EOF
 exit 1
 fi
 
-
-
 if [ ! -z $verbose ]; then
+echo 'Partition:       ' $QUEUE
 echo 'Processors:      ' $NOPTION
 echo 'Tasks per node:  ' $TASKS_PER_NODE
 echo 'Memory:          ' $MEMORY
