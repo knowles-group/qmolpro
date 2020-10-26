@@ -1,7 +1,7 @@
 #!/bin/sh
 
 # Build Molpro for Hawk
-# The installer needs personal permission to clone git@bitbucket.org:pjknowles/myMolpro
+# The installer needs personal permission to clone git@gitlab.com:molpro/Molpro
 compilersystem=intel
 if [ x$1 = xgnu ]; then compilersystem=gnu; suffix='-gnu' ; fi
 
