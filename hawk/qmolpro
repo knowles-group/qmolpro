@@ -2,6 +2,7 @@
 prefix='q'
 this=`basename $0`
 prog=${this#${prefix}}
+progpath=${prog}
 
 # configuration
 #Include this if workers have different core count to head, or if you want for other reasons to configure manually
@@ -26,7 +27,7 @@ test -r $configfile && configfileoptions=$(cat ${configfile})
 #echo systemconfigfileoptions=$systemconfigfileoptions
 #echo configfileoptions=$configfileoptions
 #echo defaultoptions=$defaultoptions
-set -- `getopt gd:vW:t:n:l:q:x:P:m:N:h: $defaultoptions $systemconfigfileoptions $configfileoptions $*`
+set -- `getopt gd:vW:t:n:l:q:x:p:P:m:N:h: $defaultoptions $systemconfigfileoptions $configfileoptions $*`
 parse_opts=0
 MEMORY=
 TASKS_PER_NODE=
@@ -43,6 +44,7 @@ while [ "$1" != -- ]; do
     -n) NOPTION=$2; shift;;
     -N) TASKS_PER_NODE=$2; shift;;
     -t) OPTION="$OPTION $1 $2"; THREADS=$2; shift;;
+    -p) progpath="$2"; echo progpath=$progpath; shift;;
     -q) QUEUE=$2; shift;;
     -P) PROJECT=$2; shift;;
     -x) garbage=$2; shift;;
@@ -184,18 +186,19 @@ cd $PWD
 date
 hostname
 echo PATH=\$PATH
-which $prog
+echo progpath=\$progpath
+which $progpath
 if [ $prog = molpro ]; then
-echo $prog -m ${MEMORY} -n $NOPTION -d \$SCRATCHDIR $OPTION $file
+echo $progpath -m ${MEMORY} -n $NOPTION -d \$SCRATCHDIR $OPTION $file
 srun mkdir -p \$SCRATCHDIR
-time $prog -v -m ${MEMORY} -n $NOPTION -d \$SCRATCHDIR $OPTION $file
+time $progpath -v -m ${MEMORY} -n $NOPTION -d \$SCRATCHDIR $OPTION $file
 ls -l \$SCRATCHDIR
 if test -z $keeptmp ; then
  srun rm -rf \$SCRATCHDIR
 fi
 else
-echo $prog $OPTION $file
-time $prog $OPTION $file
+echo $progpath $OPTION $file
+time $progpath $OPTION $file
 fi
 env
 df -h
