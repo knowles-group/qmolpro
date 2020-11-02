@@ -55,22 +55,23 @@ while [ "$1" != -- ]; do
 done
 shift
 
+memory_reserve=30
 # hardware
 if [ x${QUEUE} = xcompute  -o x${QUEUE} = xdev ]; then
-    hardware_memory=182
+    hardware_memory=192
     hardware_cores=40
     SBATCHARGS="$SBATCHARGS --exclusive"
 elif [ x${QUEUE} = xhighmem ]; then
-    hardware_memory=374
+    hardware_memory=384
     hardware_cores=40
     SBATCHARGS="$SBATCHARGS --exclusive"
 else # should be htc
     QUEUE=htc
-    hardware_memory=182
+    hardware_memory=192
     hardware_cores=40
     if [ x${NOPTION} = x ]; then NOPTION=1 ; fi
     if [ x${MEMORY} = x ]; then
-	MEMORY=$(echo "import math; print(int(math.floor(128.0*${hardware_memory}/${hardware_cores})))"|python2)"m"
+	MEMORY=$(echo "import math; print(int(math.floor(128.0*(${hardware_memory}-${memory_reserve})/${hardware_cores})))"|python2)"m"
     fi
 fi
 
@@ -80,7 +81,7 @@ if [ x${TASKS_PER_NODE} = x ]; then
 	TASKS_PER_NODE=$hardware_cores
     else
 	mem=$(echo ${MEMORY}|sed -e 's/m/*1024*1024/' -e 's/g/*1024*1024*1024/' -e 's/$/*8))/' -e 's/^/import math; print int(math.ceil(1.0*/' |python2)
-	TASKS_PER_NODE=$(echo "import math; print(int(math.floor(${hardware_memory}*1024.*1024.*1024./${mem})))"|python2)
+	TASKS_PER_NODE=$(echo "import math; print(int(math.floor((${hardware_memory}-${memory_reserve})*1024.*1024.*1024./${mem})))"|python2)
     fi
 fi
 
@@ -91,7 +92,7 @@ if [ x${QUEUE} = xhtc ]; then QUEUE=compute ; fi
 fi
 
 if [ x${MEMORY} = x ]; then
-    MEMORY=$(echo "import math; print(int(math.floor(128.0*${hardware_memory}/${TASKS_PER_NODE})))"|python2)"m"
+    MEMORY=$(echo "import math; print(int(math.floor(128.0*(${hardware_memory}-${memory_reserve})/${TASKS_PER_NODE})))"|python2)"m"
 fi
 
 if [ x$verbose != x ]; then
